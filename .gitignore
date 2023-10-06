@@ -1,0 +1,5 @@
+out/
+token.txt
+config.properties
+*.db
+.idea
