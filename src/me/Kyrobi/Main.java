@@ -105,6 +105,7 @@ public class Main extends ListenerAdapter {
         startPrintAmountInCall(scheduler);
         startAutoSaving(scheduler);
         startStatsTracker(scheduler);
+        startUserTracker(scheduler);
 
         /*
         When starting, add all users existing in a vc into the tracker
@@ -224,26 +225,47 @@ public class Main extends ListenerAdapter {
                 TextChannel channel = myGuild.getTextChannelById(1157849921802752070L);
 
                 String statsMessage = " " +
-                        "```Total servers the bot is in: " + totalServers+ "\n" +
+                        "```Stats from last 24h  \nTotal servers the bot is in: " + totalServers+ "\n" +
                         "Total members in all servers: " + totalMembers + "\n" +
                         "=============" + "\n" +
-                        "Total members in vc: " + totalMembersInVC + "\n" +
-                        "Total bots in vc: " + bots.size() + "\n" +
                         // "Total time spent in vc (in last hour): " + lastHourTotalCallTime + "\n" +
-                        "Total times joined (in last hour): " + timesJoined + "\n" +
-                        "Total times left (in last hour): " + timesLeft + "\n" +
-                        "Total times moved (in last hour): " + timesMoved + "\n" +
+                        "Total times joined: " + timesJoined + "\n" +
+                        "Total times left: " + timesLeft + "\n" +
+                        "Total times moved: " + timesMoved + "\n" +
                         "=============" + "\n" +
-                        "/resetall used (in last hour): " + resetAllUsed + "\n" +
-                        "/help used (in last hour): " + helpUsed + "\n" +
-                        "/stats used (in last hour): " + statsUsed + "\n" +
-                        "/leaderboard used (in last hour): " + leaderboardUsed + "```";
+                        "/resetall used: " + resetAllUsed + "\n" +
+                        "/help used: " + helpUsed + "\n" +
+                        "/stats used: " + statsUsed + "\n" +
+                        "/leaderboard used: " + leaderboardUsed + "```";
 
                 channel.sendMessage(statsMessage).queue();
 
             }
         };
         // Run every minute based on system time
-        scheduler.scheduleAtFixedRate(logStatsToDiscord, 0, 60, TimeUnit.MINUTES);
+        scheduler.scheduleAtFixedRate(logStatsToDiscord, 0, 24, TimeUnit.HOURS);
+    }
+
+    static int sCounter = 0;
+    static StringBuilder statsString = new StringBuilder();
+    private static void startUserTracker(ScheduledExecutorService scheduler){
+        Runnable logStatsToDiscord = new Runnable() {
+            public void run() {
+
+                if(sCounter == 24){
+                    Guild myGuild = jda.getGuildById(1000784443797164136L);
+                    TextChannel channel = myGuild.getTextChannelById(1161867968557355039L);
+                    channel.sendMessage(statsString.toString()).queue();
+                    sCounter = 0;
+                    statsString.setLength(0);
+                } else {
+                    long totalMembersInVC = getTotalMembersInVC();
+                    statsString.append("<t:" + (System.currentTimeMillis() / 1000L) + ":t> " +  "Users: " + totalMembersInVC + "  Bots: " + bots.size() + "\n");
+                    sCounter++;
+                }
+            }
+        };
+        // Run every minute based on system time
+        scheduler.scheduleAtFixedRate(logStatsToDiscord, 0, 1, TimeUnit.HOURS);
     }
 }

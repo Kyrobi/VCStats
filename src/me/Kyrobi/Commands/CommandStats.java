@@ -64,8 +64,22 @@ public class CommandStats extends ListenerAdapter {
         long rankingCounter = 0;
         try(Connection conn = dataSource.getConnection()){
 
+//            PreparedStatement selectDescOrder = conn.prepareStatement(
+//                    "SELECT `rank` FROM (SELECT *, @rownum := @rownum + 1 AS `rank` FROM (SELECT * FROM `stats` WHERE serverID = ? ORDER BY `time` DESC) AS ranked, (SELECT @rownum := 0) AS init) AS result WHERE userID = ?");
+
             PreparedStatement selectDescOrder = conn.prepareStatement(
-                    "SELECT `rank` FROM (SELECT *, @rownum := @rownum + 1 AS `rank` FROM (SELECT * FROM `stats` WHERE serverID = ? ORDER BY `time` DESC) AS ranked, (SELECT @rownum := 0) AS init) AS result WHERE userID = ?");
+                    """
+                            WITH getServerMembers AS (
+                              SELECT userID, time,
+                                     ROW_NUMBER() OVER (ORDER BY time DESC) AS row_num
+                              FROM stats
+                              WHERE serverID = ?
+                            )
+                            SELECT row_num
+                            FROM getServerMembers
+                            WHERE userID = ?;
+                            """
+            );
             selectDescOrder.setLong(1, guildID);
             selectDescOrder.setLong(2, userID);
 
