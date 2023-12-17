@@ -1,6 +1,7 @@
 package me.Kyrobi;
 
 import me.Kyrobi.objects.User;
+import net.dv8tion.jda.api.JDA;
 import net.dv8tion.jda.api.entities.Guild;
 
 import java.text.SimpleDateFormat;
@@ -10,7 +11,7 @@ import java.util.Map;
 import java.util.concurrent.TimeUnit;
 
 import static me.Kyrobi.EventHandler.joinTracker;
-import static me.Kyrobi.Main.jda;
+import static me.Kyrobi.Main.servers;
 
 /*
 Simply tracks some basic stats and sends them into a Discord server
@@ -52,8 +53,10 @@ public class StatsTracker {
     public static int getTotalMembers(){
         int memberCount = 0;
 
-        for (Guild a: jda.getGuilds()){
-            memberCount += a.getMemberCount();
+        for(JDA jda: servers){
+            for (Guild a: jda.getGuilds()){
+                memberCount += a.getMemberCount();
+            }
         }
 
         return memberCount;
@@ -61,7 +64,11 @@ public class StatsTracker {
 
     // Get how many servers the bot is in
     public static int getTotalServers(){
-        return jda.getGuilds().size();
+        int counter = 0;
+        for(JDA jda: servers){
+            counter += jda.getGuilds().size();
+        }
+        return counter;
     }
 
     public static int getTotalMembersInVC(){

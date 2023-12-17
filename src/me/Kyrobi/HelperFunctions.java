@@ -1,12 +1,14 @@
 package me.Kyrobi;
 
 import me.Kyrobi.objects.User;
+import net.dv8tion.jda.api.JDA;
+import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.TextChannel;
 import java.util.Calendar;
 import java.util.concurrent.TimeUnit;
 
 import static me.Kyrobi.EventHandler.joinTracker;
-import static me.Kyrobi.Main.jda;
+import static me.Kyrobi.Main.*;
 
 public class HelperFunctions {
 
@@ -45,22 +47,26 @@ public class HelperFunctions {
      */
     public static void logInfoToChannel(LogType logType, String message){
 
-        TextChannel textChannel = null;
-        String logMessage = "";
-        if(logType.equals(LogType.JOIN_EVENT) || logType.equals(LogType.LEAVE_EVENT) || logType.equals(LogType.MOVE_EVENT)){
-            // #logs channel
-            textChannel = jda.getTextChannelById("1000785699219439637");
-        }
+        if(loggerServer != null){
+            TextChannel textChannel = null;
+            Guild guild = loggerServer.getGuildById("1000784443797164136");
+            String logMessage = "";
+            if(logType.equals(LogType.JOIN_EVENT) || logType.equals(LogType.LEAVE_EVENT) || logType.equals(LogType.MOVE_EVENT)){
+                // #logs channel
+                textChannel = guild.getTextChannelById("1000785699219439637");
 
-        else if(logType.equals(LogType.HELP_COMMAND)
-                || logType.equals(LogType.STATS_COMMAND)
-                || logType.equals(LogType.LEADERBOARD_COMMAND)
-                || logType.equals(LogType.RESET_ALL_STATS)
-                ){
-            // #commands channel
-            textChannel = jda.getTextChannelById("1025861800383758346");
+            }
+
+            else if(logType.equals(LogType.HELP_COMMAND)
+                    || logType.equals(LogType.STATS_COMMAND)
+                    || logType.equals(LogType.LEADERBOARD_COMMAND)
+                    || logType.equals(LogType.RESET_ALL_STATS)
+            ){
+                // #commands channel
+                textChannel = guild.getTextChannelById("1025861800383758346");
+            }
+            textChannel.sendMessage(message).queue();
         }
-        textChannel.sendMessage(message).queue();
     }
 
     public static Boolean isStringALong(String input){

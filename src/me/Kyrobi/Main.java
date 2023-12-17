@@ -11,11 +11,15 @@ import net.dv8tion.jda.api.entities.Activity;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.TextChannel;
+import net.dv8tion.jda.api.events.ReadyEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.commands.OptionType;
 import net.dv8tion.jda.api.interactions.commands.build.OptionData;
+import net.dv8tion.jda.api.requests.GatewayIntent;
 import net.dv8tion.jda.api.sharding.DefaultShardManagerBuilder;
 import net.dv8tion.jda.api.sharding.ShardManager;
+import net.dv8tion.jda.api.utils.MemberCachePolicy;
+import net.dv8tion.jda.api.utils.cache.CacheFlag;
 
 import javax.security.auth.login.LoginException;
 import java.io.FileNotFoundException;
@@ -24,9 +28,7 @@ import java.io.PrintWriter;
 import java.io.UnsupportedEncodingException;
 import java.nio.file.Files;
 import java.nio.file.Path;
-import java.util.Calendar;
-import java.util.Timer;
-import java.util.TimerTask;
+import java.util.*;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
@@ -39,8 +41,9 @@ import static me.Kyrobi.StatsTracker.*;
 
 public class Main extends ListenerAdapter {
 
-    public static JDA jda;
-    public static ShardManager shardManager;
+    public static ArrayList<JDA> servers = new ArrayList<>();
+    public static JDA loggerServer;
+    static ShardManager shardManager;
     public static final String databaseFileName = "vcstats.db";
 
     public static void main(String[] args) throws IOException {
@@ -67,20 +70,11 @@ public class Main extends ListenerAdapter {
         Build the bot and start it
          */
         try{
-            jda = JDABuilder.createDefault(token).build().awaitReady();
-            jda.upsertCommand("help", "Show shows the available bot commands").queue();
-            jda.upsertCommand("stats", "Shows your total time in the voice chat").queue();
-
-            OptionData resetAllConfirm = new OptionData(OptionType.STRING, "confirmresetguildid", "Confirm stats reset", false);
-            jda.upsertCommand("resetall", "Reset EVERYONE's total voice time. This can't be undone!!!").addOptions(resetAllConfirm).queue();
-
-            OptionData leaderboardOption = new OptionData(OptionType.INTEGER, "page", "Request a specific leaderboard page", false);
-            jda.upsertCommand("leaderboard", "Shows your server's leaderboard").addOptions(leaderboardOption).queue();
+            DefaultShardManagerBuilder shardBuilder = DefaultShardManagerBuilder.createDefault(token);
 
             /*
             Handle building the shards
              */
-            DefaultShardManagerBuilder shardBuilder = DefaultShardManagerBuilder.createDefault(token);
             shardBuilder.setShardsTotal(2); // Amount of shards to load
 
             shardBuilder.addEventListeners(new EventHandler()); // Register the join/leave events
@@ -88,67 +82,34 @@ public class Main extends ListenerAdapter {
             shardBuilder.addEventListeners(new CommandStats());
             shardBuilder.addEventListeners(new CommandHelp());
             shardBuilder.addEventListeners(new CommandResetStats());
+            shardBuilder.addEventListeners(new Startup());
+
+            // shardBuilder.enableIntents(GatewayIntent.GUILD_MEMBERS);
+            shardBuilder.enableCache(CacheFlag.VOICE_STATE);
+            // shardBuilder.setMemberCachePolicy(MemberCachePolicy.ALL);
+
 
             shardManager = shardBuilder.build();
+
         }
-        catch (LoginException | InterruptedException e){
+        catch (LoginException e){
             System.out.println("Something wrong with building and starting the bot. Shutting down.");
             exit(1);
         }
 
-
-        /*
-        Start other services
-         */
-        ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(5);
-        startUpdateMemberCountPresence();
-        startPrintAmountInCall(scheduler);
-        startAutoSaving(scheduler);
-        startStatsTracker(scheduler);
-        startUserTracker(scheduler);
-
-        /*
-        When starting, add all users existing in a vc into the tracker
-         */
-        for(Guild guilds: jda.getGuilds()){
-            for(Member member: guilds.getMembers()){
-                if(member.getVoiceState().inVoiceChannel() && !(member.getUser().isBot())){
-                    joinTracker.put(member.getIdLong(), new User(member.getGuild().getIdLong(), System.currentTimeMillis(), member));
-                }
-                else if(member.getVoiceState().inVoiceChannel() && member.getUser().isBot()){
-                    bots.add(String.valueOf(member.getGuild().getIdLong() + member.getIdLong()));
-                }
-            }
-        }
-
-//        Member member = jda.getGuildById(793748152355389481L).getMemberById(414599959980277780L);
-//        for(int i = 0; i < 400_000; i++){
-//            joinTracker.put((long) i, new User(793748152355389481L, 420L, member));
-//        }
-
         new DatabaseHandler();
-
-        /*
-        Handles shutdown. If shutting down, save all the users first
-         */
-        Runtime.getRuntime().addShutdownHook(new Thread(() -> {
-            saveStatsBulk();
-            closeDatabaseConnectionPool();
-            shardManager.shutdown();
-            jda.shutdownNow();
-            System.out.println("Bot shut down. Stats saved.");
-        }));
-
-
-
     }
+
+
 
     /*
     Updates the bot's presence to show member count
      */
-    private static void startUpdateMemberCountPresence(){
+    static void startUpdateMemberCountPresence(){
         final int[] memberCount = {0};
-        Guild myGuild = jda.getGuildById(1000784443797164136L);
+
+        Guild myGuild = loggerServer.getGuildById(1000784443797164136L);
+
         TextChannel channel = myGuild.getTextChannelById(1041145268873216101L);
 
         // Auto send user count and server count to channel every 12 hours
@@ -157,15 +118,17 @@ public class Main extends ListenerAdapter {
         timer.schedule(new TimerTask() {
             @Override
             public void run() {
+                int serverCount = 0;
+                for(JDA jda: servers){
+                    for (Guild a: jda.getGuilds()){
+                        memberCount[0] += a.getMemberCount();
+                    }
 
-                for (Guild a: jda.getGuilds()){
-                    memberCount[0] += a.getMemberCount();
+                    serverCount += jda.getGuilds().size();
                 }
 
-                int serverCount = jda.getGuilds().size();
-
                 channel.sendMessage(serverCount + " - " + memberCount[0]).queue();
-                jda.getPresence().setActivity(Activity.playing("Spectating " + memberCount[0] + " members!"));
+                shardManager.setActivity(Activity.playing("Spectating " + memberCount[0] + " members!"));
                 memberCount[0] = 0; //Resets to 0 or else it will keep stacking
 
             }
@@ -176,7 +139,7 @@ public class Main extends ListenerAdapter {
     /*
     Prints how many users are in a call every 10 seconds to the console
      */
-    private static void startPrintAmountInCall(ScheduledExecutorService scheduler){
+    static void startPrintAmountInCall(ScheduledExecutorService scheduler){
         Runnable printHowManyInCall = new Runnable() {
             public void run() {
                 System.out.println("People in voice calls: " + joinTracker.size());
@@ -189,7 +152,7 @@ public class Main extends ListenerAdapter {
     /*
     Auto saves every user's time that's in a call every 5 minutes
      */
-    private static void startAutoSaving(ScheduledExecutorService scheduler){
+    static void startAutoSaving(ScheduledExecutorService scheduler){
         Runnable saveAllUsers = new Runnable() {
             public void run() {
                 saveStatsBulk();
@@ -204,7 +167,7 @@ public class Main extends ListenerAdapter {
     /*
     Logs to the Discord channel from basic bot stats
      */
-    private static void startStatsTracker(ScheduledExecutorService scheduler){
+    static void startStatsTracker(ScheduledExecutorService scheduler){
         Runnable logStatsToDiscord = new Runnable() {
             public void run() {
 
@@ -221,7 +184,7 @@ public class Main extends ListenerAdapter {
                 long leaderboardUsed = getLeaderboardUsed();
                 long resetAllUsed = getCommandResetAllUsed();
 
-                Guild myGuild = jda.getGuildById(1000784443797164136L);
+                Guild myGuild = loggerServer.getGuildById(1000784443797164136L);
                 TextChannel channel = myGuild.getTextChannelById(1157849921802752070L);
 
                 String statsMessage = " " +
@@ -248,12 +211,12 @@ public class Main extends ListenerAdapter {
 
     static int sCounter = 0;
     static StringBuilder statsString = new StringBuilder();
-    private static void startUserTracker(ScheduledExecutorService scheduler){
+    static void startUserTracker(ScheduledExecutorService scheduler){
         Runnable logStatsToDiscord = new Runnable() {
             public void run() {
 
                 if(sCounter == 24){
-                    Guild myGuild = jda.getGuildById(1000784443797164136L);
+                    Guild myGuild = loggerServer.getGuildById(1000784443797164136L);
                     TextChannel channel = myGuild.getTextChannelById(1161867968557355039L);
                     channel.sendMessage(statsString.toString()).queue();
                     sCounter = 0;

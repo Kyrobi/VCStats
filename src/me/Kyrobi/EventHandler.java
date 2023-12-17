@@ -4,6 +4,7 @@ import me.Kyrobi.objects.User;
 import net.dv8tion.jda.api.entities.Guild;
 import net.dv8tion.jda.api.entities.Member;
 import net.dv8tion.jda.api.entities.VoiceChannel;
+import net.dv8tion.jda.api.events.ReadyEvent;
 import net.dv8tion.jda.api.events.guild.voice.GuildVoiceJoinEvent;
 import net.dv8tion.jda.api.events.guild.voice.GuildVoiceLeaveEvent;
 import net.dv8tion.jda.api.events.guild.voice.GuildVoiceMoveEvent;
@@ -23,7 +24,6 @@ public class EventHandler extends ListenerAdapter {
 
     @Override
     public void onGuildVoiceJoin(GuildVoiceJoinEvent e){
-        timesJoined++;
         if(e.getMember().getUser().isBot()){
             System.out.println(e.getMember().getEffectiveName() +  " -> User is a bot. Ignoring");
             bots.add(String.valueOf(e.getGuild().getIdLong() + e.getMember().getIdLong()));
