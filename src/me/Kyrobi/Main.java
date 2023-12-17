@@ -201,7 +201,17 @@ public class Main extends ListenerAdapter {
                         "/stats used: " + statsUsed + "\n" +
                         "/leaderboard used: " + leaderboardUsed + "```";
 
-                channel.sendMessage(statsMessage).queue();
+                StringBuilder messageWithShard = new StringBuilder();
+                messageWithShard.append(statsMessage);
+                messageWithShard.append("```");
+                messageWithShard.append("=============");
+                int counter = 0;
+                for(JDA jda: servers){
+                    messageWithShard.append("\nShard " + counter + ": " + jda.getGuilds().size() + " servers");
+                    counter++;
+                }
+                messageWithShard.append("```");
+                channel.sendMessage(messageWithShard).queue();
 
             }
         };
