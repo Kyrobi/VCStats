@@ -24,6 +24,7 @@ public class EventHandler extends ListenerAdapter {
 
     @Override
     public void onGuildVoiceJoin(GuildVoiceJoinEvent e){
+        timesJoined++;
         if(e.getMember().getUser().isBot()){
             System.out.println(e.getMember().getEffectiveName() +  " -> User is a bot. Ignoring");
             bots.add(String.valueOf(e.getGuild().getIdLong() + e.getMember().getIdLong()));

@@ -75,7 +75,7 @@ public class Main extends ListenerAdapter {
             /*
             Handle building the shards
              */
-            shardBuilder.setShardsTotal(2); // Amount of shards to load
+            shardBuilder.setShardsTotal(4); // Amount of shards to load
 
             shardBuilder.addEventListeners(new EventHandler()); // Register the join/leave events
             shardBuilder.addEventListeners(new CommandLeaderboard()); // Register the command events
@@ -128,7 +128,8 @@ public class Main extends ListenerAdapter {
                 }
 
                 channel.sendMessage(serverCount + " - " + memberCount[0]).queue();
-                shardManager.setActivity(Activity.playing("Spectating " + memberCount[0] + " members!"));
+                // shardManager.setActivity(Activity.playing("Spectating " + memberCount[0] + " members!"));
+                shardManager.setActivity(Activity.playing("Track VC time! /stats"));
                 memberCount[0] = 0; //Resets to 0 or else it will keep stacking
 
             }
