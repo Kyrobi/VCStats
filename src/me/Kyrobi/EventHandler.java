@@ -24,6 +24,7 @@ public class EventHandler extends ListenerAdapter {
 
     @Override
     public void onGuildVoiceJoin(GuildVoiceJoinEvent e){
+        System.out.println(e.getMember().getIdLong() + " joined");
         timesJoined++;
         if(e.getMember().getUser().isBot()){
             System.out.println(e.getMember().getEffectiveName() +  " -> User is a bot. Ignoring");
@@ -49,6 +50,7 @@ public class EventHandler extends ListenerAdapter {
 
     @Override
     public void onGuildVoiceLeave(GuildVoiceLeaveEvent e){
+        System.out.println(e.getMember().getIdLong() + " left");
         timesLeft++;
         if(e.getMember().getUser().isBot()){
             System.out.println(e.getMember().getEffectiveName() +  " -> User is a bot. Ignoring");
