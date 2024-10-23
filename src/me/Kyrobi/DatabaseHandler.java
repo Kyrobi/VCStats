@@ -1,10 +1,5 @@
 package me.Kyrobi;
 
-import com.zaxxer.hikari.HikariConfig;
-import com.zaxxer.hikari.HikariDataSource;
-import org.apache.commons.configuration2.Configuration;
-import org.apache.commons.configuration2.builder.fluent.Configurations;
-import org.apache.commons.configuration2.ex.ConfigurationException;
 
 import java.io.File;
 import java.io.FileWriter;
@@ -14,71 +9,46 @@ import java.util.List;
 import java.util.Objects;
 public class DatabaseHandler {
 
-    static String url;
-    static String username;
-    static String password;
-
-    public static HikariDataSource dataSource;
+    public static String CONNECTION_STRING = "jdbc:sqlite:";
+    public static String DATABASE_FILE_NAME = "database.db";
 
     public DatabaseHandler() throws IOException {
-        System.out.println("Calling constructor");
-        Configurations configs = new Configurations();
-        try
-        {
-            Configuration config = configs.properties(new File("config.properties"));
-            url = config.getString("database.url");
-            username = config.getString("database.username");
-            password = config.getString("database.password");
-        }
-        catch (ConfigurationException cex)
-        {
-            String dataToWrite = """
-                    database.url = jdbc:mysql://192.168.0.1:3306/kyrobi_myDatabase
-                    database.username = Kyrobi
-                    database.password = myAwesomePassword123
-                    """;
-            System.out.println("Error reading login credentials. Creating a new config file. Please update the credentials!");
 
-            // Assume config.properties doesn't exist and create a new one and exit program
-            FileWriter myWriter = new FileWriter("config.properties");
-            myWriter.write(dataToWrite);
-            myWriter.close();
-            System.exit(1);
+        File file = new File(DATABASE_FILE_NAME);
+
+        // Check if the file exists
+        if (!file.exists()) {
+            try {
+                // Create the file if it doesn't exist
+                if (file.createNewFile()) {
+                    System.out.println("File created: " + file.getName());
+                } else {
+                    System.out.println("File creation failed.");
+                }
+            } catch (IOException e) {
+                System.out.println("An error occurred.");
+                e.printStackTrace();
+            }
+        } else {
+            System.out.println("File already exists.");
         }
 
-        HikariConfig Hconfig = new HikariConfig();
-        Hconfig.setLeakDetectionThreshold(6000);
+        CONNECTION_STRING = CONNECTION_STRING + DATABASE_FILE_NAME;
 
-        dataSource = new HikariDataSource();
-        dataSource.setJdbcUrl(url);
-        dataSource.setUsername(username);
-        dataSource.setPassword(password);
         createNewTable();
-    }
-
-    public static void closeDatabaseConnectionPool(){
-        dataSource.close();
-        System.out.println("Closing database pool...");
     }
 
     public void createNewTable(){
         String create_stats_table = "CREATE TABLE IF NOT EXISTS stats (" +
-                "userID BIGINT NOT NULL DEFAULT 0, " +
-                "time BIGINT NOT NULL DEFAULT 0, " +
-                "serverID BIGINT NOT NULL DEFAULT 0, " +
+                "userID INTEGER NOT NULL DEFAULT 0, " +
+                "time INTEGER NOT NULL DEFAULT 0, " +
+                "serverID INTEGER NOT NULL DEFAULT 0, " +
                 "PRIMARY KEY (userID, serverID), " +
-                "UNIQUE KEY unique_user_server (userID, serverID)" +
+                "UNIQUE (userID, serverID)" +
                 ");";
 
-//        String create_stats_table = "CREATE TABLE IF NOT EXISTS stats (" +
-//                "userKey VARCHAR(255) NOT NULL, " +
-//                "userID BIGINT NOT NULL DEFAULT 0, " +
-//                "time BIGINT NOT NULL DEFAULT 0, " +
-//                "serverID BIGINT NOT NULL DEFAULT 0, " +
-//                "PRIMARY KEY (userKey)" +
-//                ");";
 
-        try(Connection conn = dataSource.getConnection()){
+        try(Connection conn = DriverManager.getConnection(CONNECTION_STRING)){
             Statement stmt = conn.createStatement(); // Formulate the command to execute
             stmt.execute(create_stats_table);  //Execute said command
         }
@@ -86,15 +56,17 @@ public class DatabaseHandler {
             System.out.println(error.getMessage());
         }
 
-        System.out.println("Database does not exist. Creating a new one at " + url);
+        System.out.println("Database does not exist. Creating a new one at " + CONNECTION_STRING);
     }
 
     //Insert a new value into the database
     public static void insert(long userID, long time, long serverID){
 
-        String sqlcommand = "INSERT INTO stats (userID, serverID, time) VALUES (?, ?, ?) " + "ON DUPLICATE KEY UPDATE time = time + ?";
+        String sqlcommand = "INSERT INTO stats (userID, serverID, time) " +
+                "VALUES (?, ?, ?) " +
+                "ON CONFLICT(userID, serverID) DO UPDATE SET time = time + ?;";
 
-        try(Connection conn = dataSource.getConnection()){
+        try(Connection conn = DriverManager.getConnection(CONNECTION_STRING)){
             PreparedStatement stmt = conn.prepareStatement(sqlcommand);
             stmt.setLong(1, userID); // The first column will contain the ID
             stmt.setLong(2, serverID); // The second column will contain the amount
@@ -109,11 +81,14 @@ public class DatabaseHandler {
     }
 
     public static void bulkInsert(List<Long> userIDs, List<Long>times, List<Long> serverIDs){
-        try(Connection conn = dataSource.getConnection()){
+        try(Connection conn = DriverManager.getConnection(CONNECTION_STRING)){
             // PreparedStatement update = conn.prepareStatement("UPDATE stats SET time = ? WHERE userID = ? AND serverID = ?");
 
             PreparedStatement updateOrInsertStatement = conn.prepareStatement(
-                    "INSERT INTO stats (userID, serverID, time) VALUES (?, ?, ?) " + "ON DUPLICATE KEY UPDATE time = time + ?");
+                    "INSERT INTO stats (userID, serverID, time) " +
+                        "VALUES (?, ?, ?) " +
+                        "ON CONFLICT(userID, serverID) DO UPDATE SET time = time + ?;"
+            );
 
             // Disable auto-commit to enable batch processing
             conn.setAutoCommit(false);
@@ -148,50 +123,11 @@ public class DatabaseHandler {
         }
     }
 
-    //Checks to see if a user exists in the database
-    public static Boolean exists(long userID, long serverID){
-        // String to get all the values from the database
-        int count = 0;
-
-        try(Connection conn = dataSource.getConnection()){
-            //System.out.println("Connecting...");
-            PreparedStatement ifexists = conn.prepareStatement("SELECT * FROM stats WHERE userID = ? AND serverID = ?");
-
-            ifexists.setLong(1, userID);
-            ifexists.setLong(2, serverID);
-
-            ResultSet rs = ifexists.executeQuery(); // Execute the command
-
-
-            //We loop through the database. If the userID matches, we break out of the loop
-            while(rs.next()){
-                //System.out.println("ID: " + rs.getString("userId") + " Amount: " + rs.getInt("amount"));
-                if(Objects.equals(rs.getLong("userID"), userID)){
-                    ++count;
-                    rs.close();
-                    conn.close();
-                    break; // Breaks out of the loop once the value has been found. No need to loop through the rest of the database
-                }
-            }
-        }
-        catch(SQLException e){
-            e.printStackTrace();
-            System.out.println("Error code: " + e.getMessage());
-        }
-
-        if(count != 0){
-            return true;
-        }
-        else{
-            return false;
-        }
-    }
-
 
     public static long getTime(long userId, long serverID){
         long amount = 0;
 
-        try (Connection conn = dataSource.getConnection()){
+        try (Connection conn = DriverManager.getConnection(CONNECTION_STRING)){
             //System.out.println("Connecting...");
             PreparedStatement getAmount = conn.prepareStatement("SELECT * FROM stats WHERE userID = ? AND serverID = ?");
 

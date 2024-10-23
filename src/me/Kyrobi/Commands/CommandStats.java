@@ -62,11 +62,27 @@ public class CommandStats extends ListenerAdapter {
 
     private long getPlayerLeaderboardPosition(long guildID, long userID){
         long rankingCounter = 0;
-        try(Connection conn = dataSource.getConnection()){
+        try(Connection conn = DriverManager.getConnection(CONNECTION_STRING)){
 
 //            PreparedStatement selectDescOrder = conn.prepareStatement(
 //                    "SELECT `rank` FROM (SELECT *, @rownum := @rownum + 1 AS `rank` FROM (SELECT * FROM `stats` WHERE serverID = ? ORDER BY `time` DESC) AS ranked, (SELECT @rownum := 0) AS init) AS result WHERE userID = ?");
 
+            // MySQL Query Format
+//            PreparedStatement selectDescOrder = conn.prepareStatement(
+//                    """
+//                            WITH getServerMembers AS (
+//                              SELECT userID, time,
+//                                     ROW_NUMBER() OVER (ORDER BY time DESC) AS row_num
+//                              FROM stats
+//                              WHERE serverID = ?
+//                            )
+//                            SELECT row_num
+//                            FROM getServerMembers
+//                            WHERE userID = ?;
+//                            """
+//            );
+
+            // SQLite Query Format
             PreparedStatement selectDescOrder = conn.prepareStatement(
                     """
                             WITH getServerMembers AS (
@@ -80,6 +96,7 @@ public class CommandStats extends ListenerAdapter {
                             WHERE userID = ?;
                             """
             );
+
             selectDescOrder.setLong(1, guildID);
             selectDescOrder.setLong(2, userID);
 

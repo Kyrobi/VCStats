@@ -14,7 +14,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.Set;
 
-import static me.Kyrobi.DatabaseHandler.dataSource;
+import static me.Kyrobi.DatabaseHandler.CONNECTION_STRING;
 import static me.Kyrobi.HelperFunctions.logInfoToChannel;
 import static me.Kyrobi.HelperFunctions.millisecondsToTimeStamp;
 import static me.Kyrobi.StatsTracker.commandHelpUsed;
@@ -117,9 +117,11 @@ public class CommandLeaderboard extends ListenerAdapter {
         ArrayList<String> users = new ArrayList<>();
 
         int ranking = 1;
-        try(Connection conn = dataSource.getConnection()){
+        try(Connection conn = DriverManager.getConnection(CONNECTION_STRING)){
 
-            PreparedStatement selectDescOrder = conn.prepareStatement("SELECT * FROM `stats` WHERE serverID = ? ORDER BY `time` DESC LIMIT 1000");
+            PreparedStatement selectDescOrder = conn.prepareStatement(
+                    "SELECT * FROM stats WHERE serverID = ? ORDER BY time DESC LIMIT 1000"
+            );
             selectDescOrder.setLong(1, guildID);
 
             ResultSet rs = selectDescOrder.executeQuery(); // Execute the command
@@ -146,9 +148,11 @@ public class CommandLeaderboard extends ListenerAdapter {
     private long getServerTotalTime(long guildID){
         long sum = 0;
 
-        try(Connection conn = dataSource.getConnection()){
+        try(Connection conn = DriverManager.getConnection(CONNECTION_STRING)){
 
-            PreparedStatement selectDescOrder = conn.prepareStatement("SELECT SUM(`time`) FROM `stats` WHERE serverID = ?");
+            PreparedStatement selectDescOrder = conn.prepareStatement(
+                    "SELECT SUM(time) FROM stats WHERE serverID = ?"
+            );
             selectDescOrder.setLong(1, guildID);
 
             ResultSet rs = selectDescOrder.executeQuery(); // Execute the command

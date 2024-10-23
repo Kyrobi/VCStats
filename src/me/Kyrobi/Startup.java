@@ -12,7 +12,6 @@ import net.dv8tion.jda.api.interactions.commands.build.OptionData;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 
-import static me.Kyrobi.DatabaseHandler.closeDatabaseConnectionPool;
 import static me.Kyrobi.EventHandler.*;
 import static me.Kyrobi.Main.*;
 
@@ -73,7 +72,6 @@ public class Startup extends ListenerAdapter {
              */
             Runtime.getRuntime().addShutdownHook(new Thread(() -> {
                 saveStatsBulk();
-                closeDatabaseConnectionPool();
                 shardManager.shutdown();
                 for(JDA instance: servers){
                     instance.shutdownNow();

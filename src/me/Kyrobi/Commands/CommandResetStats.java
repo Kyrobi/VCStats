@@ -7,13 +7,10 @@ import net.dv8tion.jda.api.events.interaction.SlashCommandEvent;
 import net.dv8tion.jda.api.hooks.ListenerAdapter;
 import net.dv8tion.jda.api.interactions.commands.OptionMapping;
 
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
 import java.util.ArrayList;
 
-import static me.Kyrobi.DatabaseHandler.dataSource;
+import static me.Kyrobi.DatabaseHandler.CONNECTION_STRING;
 import static me.Kyrobi.HelperFunctions.*;
 import static me.Kyrobi.StatsTracker.commandResetAllUsed;
 
@@ -76,10 +73,10 @@ public class CommandResetStats extends ListenerAdapter {
     }
 
     private void resetAll(long guildID){
-        try(Connection conn = dataSource.getConnection()){
+        try(Connection conn = DriverManager.getConnection(CONNECTION_STRING)){
 
             PreparedStatement selectDescOrder = conn.prepareStatement(
-                    "UPDATE `stats` SET time=0 WHERE serverID = ?"
+                    "UPDATE stats SET time = 0 WHERE serverID = ?"
             );
 
             selectDescOrder.setLong(1, guildID);
